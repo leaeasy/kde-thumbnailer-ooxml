@@ -1,0 +1,18 @@
+{
+    "CacheThumbnail": true,
+    "KPlugin": {
+        "MimeTypes": [
+            "application/wps-office.docx",
+            "application/wps-office.pptx",
+            "application/wps-office.xlsx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ],
+        "Name": "Microsoft Office Open XML Documents",
+        "Name[zh_CN]": "Microsoft Office Open XML 文档",
+        "Name[zh_HK]": "Microsoft Office Open XML 文件",
+        "Name[zh_TW]": "Microsoft Office Open XML 文件"
+    },
+    "ThumbnailerVersion": 1
+}
