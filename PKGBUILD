@@ -7,7 +7,8 @@ arch=('x86_64')
 url="https://github.com/leaeasy/kde-thumbnailer-ooxml"
 license=('GPL-2.0-or-later' 'LGPL-2.0-only')
 depends=('karchive' 'kcoreaddons' 'kio' 'qt6-base')
-optdepends=('catdoc: preview support for legacy .doc, .ppt and .xls files')
+optdepends=('catdoc: preview support for legacy .doc, .ppt and .xls files'
+            'cmark: preview support for Markdown files')
 makedepends=('cmake' 'extra-cmake-modules' 'ninja')
 source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/${pkgver}.tar.gz")
 sha256sums=('563f87ee11562dcfae22bb81f61419a2393204ae4befcf96bf2211c7b72ebb3a')

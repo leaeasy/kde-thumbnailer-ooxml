@@ -2,6 +2,8 @@
     "CacheThumbnail": true,
     "KPlugin": {
         "MimeTypes": [
+            "text/markdown",
+            "text/x-markdown",
             "application/msword",
             "application/vnd.ms-powerpoint",
             "application/vnd.ms-excel",

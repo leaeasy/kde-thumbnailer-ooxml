@@ -32,6 +32,7 @@ set(libkowmf_SRCS
 
 kcoreaddons_add_plugin(ooxmlthumbnail
     SOURCES
+        markdownpreview.cpp
         legacyofficepreview.cpp
         ooxmlcreator.cpp
         ${libkowmf_SRCS}

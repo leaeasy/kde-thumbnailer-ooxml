@@ -22,6 +22,7 @@
 #include "ooxmlcreator.h"
 
 #include "legacyofficepreview.h"
+#include "markdownpreview.h"
 
 #include <KArchiveFile>
 #include <KArchiveDirectory>
@@ -1002,6 +1003,17 @@ KIO::ThumbnailResult OOXmlCreator::create(const KIO::ThumbnailRequest &request)
         QImage image = renderLegacyDocPreview(url.toLocalFile(), targetSize);
         if (image.isNull()) {
             qCDebug(OOXML_THUMBNAIL_LOG) << "DOC thumbnail generation failed";
+            return KIO::ThumbnailResult::fail();
+        }
+        image.setDevicePixelRatio(request.devicePixelRatio());
+        return KIO::ThumbnailResult::pass(image);
+    }
+
+    if (mimeType == QLatin1String("text/markdown")
+        || mimeType == QLatin1String("text/x-markdown")) {
+        QImage image = renderMarkdownPreview(url.toLocalFile(), targetSize);
+        if (image.isNull()) {
+            qCDebug(OOXML_THUMBNAIL_LOG) << "Markdown thumbnail generation failed";
             return KIO::ThumbnailResult::fail();
         }
         image.setDevicePixelRatio(request.devicePixelRatio());
