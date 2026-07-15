@@ -2,6 +2,12 @@
     "CacheThumbnail": true,
     "KPlugin": {
         "MimeTypes": [
+            "application/msword",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.ms-excel",
+            "application/wps-office.doc",
+            "application/wps-office.ppt",
+            "application/wps-office.xls",
             "application/wps-office.docx",
             "application/wps-office.pptx",
             "application/wps-office.xlsx",
@@ -9,10 +15,10 @@
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         ],
-        "Name": "Microsoft Office Open XML Documents",
-        "Name[zh_CN]": "Microsoft Office Open XML 文档",
-        "Name[zh_HK]": "Microsoft Office Open XML 文件",
-        "Name[zh_TW]": "Microsoft Office Open XML 文件"
+        "Name": "Microsoft Office Documents",
+        "Name[zh_CN]": "Microsoft Office 文档",
+        "Name[zh_HK]": "Microsoft Office 文件",
+        "Name[zh_TW]": "Microsoft Office 文件"
     },
     "ThumbnailerVersion": 1
 }

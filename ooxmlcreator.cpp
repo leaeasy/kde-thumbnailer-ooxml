@@ -21,6 +21,8 @@
 
 #include "ooxmlcreator.h"
 
+#include "legacyofficepreview.h"
+
 #include <KArchiveFile>
 #include <KArchiveDirectory>
 #include <KPluginFactory>
@@ -986,12 +988,46 @@ KIO::ThumbnailResult OOXmlCreator::create(const KIO::ThumbnailRequest &request)
 {
     const QUrl url = request.url();
     const QSize targetSize = request.targetSize();
+    const QString mimeType = request.mimeType();
     qCDebug(OOXML_THUMBNAIL_LOG) << "Thumbnail request" << url << request.mimeType() << targetSize << "DPR" << request.devicePixelRatio();
 
     const qint64 pixelCount = qint64(targetSize.width()) * qint64(targetSize.height());
     if (!url.isLocalFile() || !targetSize.isValid() || targetSize.isEmpty() || pixelCount > maximumThumbnailPixels) {
         qCDebug(OOXML_THUMBNAIL_LOG) << "Rejected invalid thumbnail request";
         return KIO::ThumbnailResult::fail();
+    }
+
+    if (mimeType == QLatin1String("application/msword")
+        || mimeType == QLatin1String("application/wps-office.doc")) {
+        QImage image = renderLegacyDocPreview(url.toLocalFile(), targetSize);
+        if (image.isNull()) {
+            qCDebug(OOXML_THUMBNAIL_LOG) << "DOC thumbnail generation failed";
+            return KIO::ThumbnailResult::fail();
+        }
+        image.setDevicePixelRatio(request.devicePixelRatio());
+        return KIO::ThumbnailResult::pass(image);
+    }
+
+    if (mimeType == QLatin1String("application/vnd.ms-powerpoint")
+        || mimeType == QLatin1String("application/wps-office.ppt")) {
+        QImage image = renderLegacyPptPreview(url.toLocalFile(), targetSize);
+        if (image.isNull()) {
+            qCDebug(OOXML_THUMBNAIL_LOG) << "PPT thumbnail generation failed";
+            return KIO::ThumbnailResult::fail();
+        }
+        image.setDevicePixelRatio(request.devicePixelRatio());
+        return KIO::ThumbnailResult::pass(image);
+    }
+
+    if (mimeType == QLatin1String("application/vnd.ms-excel")
+        || mimeType == QLatin1String("application/wps-office.xls")) {
+        QImage image = renderLegacyXlsPreview(url.toLocalFile(), targetSize);
+        if (image.isNull()) {
+            qCDebug(OOXML_THUMBNAIL_LOG) << "XLS thumbnail generation failed";
+            return KIO::ThumbnailResult::fail();
+        }
+        image.setDevicePixelRatio(request.devicePixelRatio());
+        return KIO::ThumbnailResult::pass(image);
     }
 
     KZip zip(url.toLocalFile());

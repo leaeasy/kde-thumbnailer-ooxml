@@ -32,6 +32,7 @@ set(libkowmf_SRCS
 
 kcoreaddons_add_plugin(ooxmlthumbnail
     SOURCES
+        legacyofficepreview.cpp
         ooxmlcreator.cpp
         ${libkowmf_SRCS}
     INSTALL_NAMESPACE "kf6/thumbcreator"
@@ -39,6 +40,7 @@ kcoreaddons_add_plugin(ooxmlthumbnail
 target_link_libraries(ooxmlthumbnail
     PRIVATE
         Qt6::Gui
+        Qt6::Core
         Qt6::Xml
         KF6::Archive
         KF6::KIOGui
