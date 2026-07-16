@@ -30,6 +30,8 @@
 #include <QPainter>
 #include <QPen>
 #include <QProcess>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
 #include <QTextLayout>
 #include <QTextOption>
 #include <QVector>
@@ -42,7 +44,7 @@ constexpr qsizetype maximumPreviewCharacters = 12000;
 constexpr qsizetype maximumBlocks = 256;
 constexpr int extractorTimeoutMs = 4000;
 
-struct MarkdownLine {
+struct PreviewLine {
     QString text;
     bool title = false;
     bool code = false;
@@ -106,7 +108,40 @@ QString collectText(const QDomNode &node)
     return normalizedText(result);
 }
 
-void appendLine(QVector<MarkdownLine> &lines, qsizetype &characterCount, QString text, bool title = false, bool code = false)
+QString decodeHtmlEntities(QString text)
+{
+    text.replace(QLatin1String("&nbsp;"), QStringLiteral(" "));
+    text.replace(QLatin1String("&amp;"), QStringLiteral("&"));
+    text.replace(QLatin1String("&lt;"), QStringLiteral("<"));
+    text.replace(QLatin1String("&gt;"), QStringLiteral(">"));
+    text.replace(QLatin1String("&quot;"), QStringLiteral("\""));
+    text.replace(QLatin1String("&#39;"), QStringLiteral("'"));
+
+    static const QRegularExpression numericEntity(QStringLiteral("&#(\\d+);"));
+    qsizetype offset = 0;
+    while (true) {
+        const QRegularExpressionMatch match = numericEntity.match(text, offset);
+        if (!match.hasMatch()) {
+            break;
+        }
+
+        bool ok = false;
+        const uint codePoint = match.capturedView(1).toUInt(&ok);
+        const char32_t scalarValue = static_cast<char32_t>(codePoint);
+        const QString replacement = ok && codePoint <= 0x10FFFF ? QString::fromUcs4(&scalarValue, 1) : QString();
+        text.replace(match.capturedStart(0), match.capturedLength(0), replacement);
+        offset = match.capturedStart(0) + replacement.size();
+    }
+
+    return text;
+}
+
+QString normalizedHtmlText(QString text)
+{
+    return normalizedText(decodeHtmlEntities(std::move(text)));
+}
+
+void appendLine(QVector<PreviewLine> &lines, qsizetype &characterCount, QString text, bool title = false, bool code = false)
 {
     text = normalizedText(text);
     if (text.isEmpty() || lines.size() >= maximumBlocks || characterCount >= maximumPreviewCharacters) {
@@ -119,7 +154,7 @@ void appendLine(QVector<MarkdownLine> &lines, qsizetype &characterCount, QString
     characterCount += text.size();
 }
 
-void appendBlockLines(const QString &text, QVector<MarkdownLine> &lines, qsizetype &characterCount, bool title = false, bool code = false)
+void appendBlockLines(const QString &text, QVector<PreviewLine> &lines, qsizetype &characterCount, bool title = false, bool code = false)
 {
     const QStringList rawLines = text.split(QLatin1Char('\n'));
     bool firstLine = true;
@@ -132,9 +167,9 @@ void appendBlockLines(const QString &text, QVector<MarkdownLine> &lines, qsizety
     }
 }
 
-QVector<MarkdownLine> parseMarkdownDocument(const QDomDocument &document)
+QVector<PreviewLine> parseMarkdownDocument(const QDomDocument &document)
 {
-    QVector<MarkdownLine> lines;
+    QVector<PreviewLine> lines;
     lines.reserve(64);
     qsizetype characterCount = 0;
     bool titleAssigned = false;
@@ -166,6 +201,106 @@ QVector<MarkdownLine> parseMarkdownDocument(const QDomDocument &document)
             appendLine(lines, characterCount, QStringLiteral("| %1").arg(text));
         }
 
+        if (lines.size() >= maximumBlocks || characterCount >= maximumPreviewCharacters) {
+            break;
+        }
+    }
+    return lines;
+}
+
+void appendHtmlElement(const QDomElement &element, QVector<PreviewLine> &lines, qsizetype &characterCount, bool &titleAssigned)
+{
+    if (element.isNull() || lines.size() >= maximumBlocks || characterCount >= maximumPreviewCharacters) {
+        return;
+    }
+
+    const QString tagName = element.tagName().toLower();
+    if (tagName == QLatin1String("script") || tagName == QLatin1String("style") || tagName == QLatin1String("noscript")) {
+        return;
+    }
+
+    if (tagName == QLatin1String("title")) {
+        const QString text = normalizedHtmlText(collectText(element));
+        if (!text.isEmpty() && !titleAssigned) {
+            appendLine(lines, characterCount, text, true, false);
+            titleAssigned = true;
+        }
+        return;
+    }
+
+    if (tagName == QLatin1String("h1") || tagName == QLatin1String("h2") || tagName == QLatin1String("h3")
+        || tagName == QLatin1String("h4") || tagName == QLatin1String("h5") || tagName == QLatin1String("h6")) {
+        const QString text = normalizedHtmlText(collectText(element));
+        if (!text.isEmpty()) {
+            appendLine(lines, characterCount, text, !titleAssigned, false);
+            titleAssigned = true;
+        }
+        return;
+    }
+
+    if (tagName == QLatin1String("p") || tagName == QLatin1String("div") || tagName == QLatin1String("article")
+        || tagName == QLatin1String("section") || tagName == QLatin1String("main")) {
+        appendLine(lines, characterCount, normalizedHtmlText(collectText(element)));
+    } else if (tagName == QLatin1String("li")) {
+        const QString text = normalizedHtmlText(collectText(element));
+        appendLine(lines, characterCount, QStringLiteral("- %1").arg(text));
+    } else if (tagName == QLatin1String("blockquote")) {
+        const QString text = normalizedHtmlText(collectText(element));
+        appendLine(lines, characterCount, QStringLiteral("| %1").arg(text));
+    } else if (tagName == QLatin1String("pre") || tagName == QLatin1String("code")) {
+        appendBlockLines(decodeHtmlEntities(collectText(element)), lines, characterCount, false, true);
+        return;
+    }
+
+    if (lines.size() >= maximumBlocks || characterCount >= maximumPreviewCharacters) {
+        return;
+    }
+
+    for (QDomNode child = element.firstChild(); !child.isNull(); child = child.nextSibling()) {
+        appendHtmlElement(child.toElement(), lines, characterCount, titleAssigned);
+        if (lines.size() >= maximumBlocks || characterCount >= maximumPreviewCharacters) {
+            break;
+        }
+    }
+}
+
+QVector<PreviewLine> parseHtmlDocument(const QDomDocument &document)
+{
+    QVector<PreviewLine> lines;
+    lines.reserve(64);
+    qsizetype characterCount = 0;
+    bool titleAssigned = false;
+
+    appendHtmlElement(document.documentElement(), lines, characterCount, titleAssigned);
+    return lines;
+}
+
+QVector<PreviewLine> parseHtmlFallback(const QString &source)
+{
+    QVector<PreviewLine> lines;
+    lines.reserve(32);
+    qsizetype characterCount = 0;
+
+    QString html = source;
+    html.remove(QRegularExpression(QStringLiteral("<!--.*?-->"), QRegularExpression::DotMatchesEverythingOption));
+    html.remove(QRegularExpression(QStringLiteral("<(script|style|noscript)\\b[^>]*>.*?</\\1>"),
+                                   QRegularExpression::CaseInsensitiveOption | QRegularExpression::DotMatchesEverythingOption));
+
+    const QRegularExpression titleExpression(QStringLiteral("<title\\b[^>]*>([\\s\\S]*?)</title>"),
+                                             QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpressionMatch titleMatch = titleExpression.match(html);
+    if (titleMatch.hasMatch()) {
+        appendLine(lines, characterCount, normalizedHtmlText(titleMatch.captured(1)), true, false);
+    }
+
+    html.replace(QRegularExpression(QStringLiteral("<(br|/p|/div|/section|/article|/main|/li|/h[1-6])\\b[^>]*>"),
+                                    QRegularExpression::CaseInsensitiveOption),
+                 QStringLiteral("\n"));
+    html.remove(QRegularExpression(QStringLiteral("<[^>]+>"), QRegularExpression::DotMatchesEverythingOption));
+
+    const QStringList blocks = decodeHtmlEntities(html).split(QLatin1Char('\n'));
+    for (const QString &block : blocks) {
+        appendLine(lines, characterCount, normalizedText(block));
         if (lines.size() >= maximumBlocks || characterCount >= maximumPreviewCharacters) {
             break;
         }
@@ -210,7 +345,7 @@ QImage addFormatWatermark(QImage image, const QString &label, const QColor &colo
     return image;
 }
 
-QImage renderMarkdownDocument(const QVector<MarkdownLine> &lines, const QSize &targetSize)
+QImage renderPreviewDocument(const QVector<PreviewLine> &lines, const QSize &targetSize)
 {
     if (lines.isEmpty() || !targetSize.isValid() || targetSize.isEmpty()) {
         return {};
@@ -236,7 +371,7 @@ QImage renderMarkdownDocument(const QVector<MarkdownLine> &lines, const QSize &t
     const int codePixelSize = qBound(7, bodyPixelSize - 1, 13);
     qreal y = contentRect.top();
 
-    for (const MarkdownLine &line : lines) {
+    for (const PreviewLine &line : lines) {
         QFont font;
         if (line.code) {
             font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
@@ -308,19 +443,49 @@ QImage renderMarkdownPreview(const QString &filePath, const QSize &targetSize)
     }
 
     QDomDocument document;
-    QString parseError;
-    int errorLine = 0;
-    int errorColumn = 0;
-    if (!document.setContent(xml, &parseError, &errorLine, &errorColumn)) {
-        qCDebug(OOXML_THUMBNAIL_LOG) << "Failed to parse cmark XML" << parseError << errorLine << errorColumn;
+    const QDomDocument::ParseResult parseResult = document.setContent(xml);
+    if (!parseResult) {
+        qCDebug(OOXML_THUMBNAIL_LOG) << "Failed to parse cmark XML" << parseResult.errorMessage << parseResult.errorLine << parseResult.errorColumn;
         return {};
     }
 
-    const QVector<MarkdownLine> lines = parseMarkdownDocument(document);
+    const QVector<PreviewLine> lines = parseMarkdownDocument(document);
     if (lines.isEmpty()) {
         qCDebug(OOXML_THUMBNAIL_LOG) << "Markdown preview has no renderable content" << filePath;
         return {};
     }
 
-    return addFormatWatermark(renderMarkdownDocument(lines, targetSize), QStringLiteral("MD"), QColor(29, 111, 180));
+    return addFormatWatermark(renderPreviewDocument(lines, targetSize), QStringLiteral("MD"), QColor(29, 111, 180));
+}
+
+QImage renderHtmlPreview(const QString &filePath, const QSize &targetSize)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qCDebug(OOXML_THUMBNAIL_LOG) << "Failed to open HTML file" << filePath;
+        return {};
+    }
+
+    const QByteArray data = file.read(maximumPreviewCharacters * 8);
+    if (data.isEmpty()) {
+        qCDebug(OOXML_THUMBNAIL_LOG) << "HTML preview has no readable content" << filePath;
+        return {};
+    }
+
+    QDomDocument document;
+    QVector<PreviewLine> lines;
+    const QDomDocument::ParseResult parseResult = document.setContent(data);
+    if (parseResult) {
+        lines = parseHtmlDocument(document);
+    } else {
+        qCDebug(OOXML_THUMBNAIL_LOG) << "Failed to parse HTML as XML, using fallback" << parseResult.errorMessage << parseResult.errorLine << parseResult.errorColumn;
+        lines = parseHtmlFallback(QString::fromUtf8(data));
+    }
+
+    if (lines.isEmpty()) {
+        qCDebug(OOXML_THUMBNAIL_LOG) << "HTML preview has no renderable content" << filePath;
+        return {};
+    }
+
+    return addFormatWatermark(renderPreviewDocument(lines, targetSize), QStringLiteral("HTML"), QColor(198, 83, 36));
 }

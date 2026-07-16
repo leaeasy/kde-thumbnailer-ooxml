@@ -1,6 +1,6 @@
 pkgname=kdegraphics-thumbnailer-ooxml
 _pkgname=kde-thumbnailer-ooxml
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="KDE thumbnail plugin for Microsoft Office documents"
 arch=('x86_64')

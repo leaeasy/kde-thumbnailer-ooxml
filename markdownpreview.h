@@ -26,5 +26,6 @@
 #include <QString>
 
 QImage renderMarkdownPreview(const QString &filePath, const QSize &targetSize);
+QImage renderHtmlPreview(const QString &filePath, const QSize &targetSize);
 
 #endif // MARKDOWNPREVIEW_H

@@ -1020,6 +1020,17 @@ KIO::ThumbnailResult OOXmlCreator::create(const KIO::ThumbnailRequest &request)
         return KIO::ThumbnailResult::pass(image);
     }
 
+    if (mimeType == QLatin1String("text/html")
+        || mimeType == QLatin1String("application/xhtml+xml")) {
+        QImage image = renderHtmlPreview(url.toLocalFile(), targetSize);
+        if (image.isNull()) {
+            qCDebug(OOXML_THUMBNAIL_LOG) << "HTML thumbnail generation failed";
+            return KIO::ThumbnailResult::fail();
+        }
+        image.setDevicePixelRatio(request.devicePixelRatio());
+        return KIO::ThumbnailResult::pass(image);
+    }
+
     if (mimeType == QLatin1String("application/vnd.ms-powerpoint")
         || mimeType == QLatin1String("application/wps-office.ppt")) {
         QImage image = renderLegacyPptPreview(url.toLocalFile(), targetSize);

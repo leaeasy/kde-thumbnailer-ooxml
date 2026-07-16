@@ -4,6 +4,8 @@
         "MimeTypes": [
             "text/markdown",
             "text/x-markdown",
+            "text/html",
+            "application/xhtml+xml",
             "application/msword",
             "application/vnd.ms-powerpoint",
             "application/vnd.ms-excel",
