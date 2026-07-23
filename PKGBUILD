@@ -1,6 +1,6 @@
 pkgname=kdegraphics-thumbnailer-ooxml
 _pkgname=kde-thumbnailer-ooxml
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="KDE thumbnail plugin for Microsoft Office documents"
 arch=('x86_64')
@@ -11,7 +11,7 @@ optdepends=('catdoc: preview support for legacy .doc, .ppt and .xls files'
             'cmark: preview support for Markdown files')
 makedepends=('cmake' 'extra-cmake-modules' 'ninja')
 source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/${pkgver}.tar.gz")
-sha256sums=('563f87ee11562dcfae22bb81f61419a2393204ae4befcf96bf2211c7b72ebb3a')
+sha256sums=('SKIP')
 
 build() {
   cmake -S "${_pkgname}-${pkgver}" -B build -G Ninja \
